@@ -38,15 +38,9 @@ void checkBarrierComplete(pthread_mutex_t* barrierLock,
 {
     pthread_mutex_lock(barrierLock);
     if (threadNumber != checkNumber)
-    {
         pthread_cond_wait(barrierComplete, barrierLock);
-    }
     else
-    {
-        // Potentially do something here
-        //printf("Signaling other threads\n");
         pthread_cond_broadcast(barrierComplete);
-    }
     pthread_mutex_unlock(barrierLock);
 }
 
