@@ -17,8 +17,7 @@ int count = 0;
 void printCount()
 {
     pthread_mutex_lock(&mutex);
-    int internalCount = count = count + 1;
-    printf("%d \n", internalCount);
+    printf("%d \n", count++);   // Conveniently also lock printf. This serializes our prints to strictly increasing.
     pthread_mutex_unlock(&mutex);
 }
 
@@ -33,6 +32,12 @@ void* doAThing(void *args)
     }
 }
 
+int cleanExit(CyclicBarrier* barrier, const int errorCode)
+{
+    barrier->free(barrier);
+    return errorCode;
+}
+
 int main(int argc, char** argv)
 {
     const unsigned int numThreads = 4;
@@ -40,23 +45,27 @@ int main(int argc, char** argv)
     pthread_t* threads = (pthread_t*) malloc(sizeof(pthread_t) * numThreads);
 
     {
-        unsigned int i = 0;
+        unsigned int i = 0; // Ugh, for C STD < C99
         for (i = 0; i < numThreads; ++i)
         {
             pthread_t* currentThread = &(threads[i]);
-            int ret = pthread_create(currentThread, NULL, &doAThing, barrier);
+            const int ret = pthread_create(currentThread, NULL, &doAThing, barrier);
             if (ret != 0)
             {
                 printf("Creating pthread %d caused an error!", i);
-                return ret;
+                return cleanExit(barrier, ret);
             }
         }
         for (i = 0; i < numThreads; ++i)
         {
             pthread_t* currentThread = &(threads[i]);
-            pthread_join(*currentThread, NULL);
+            const int ret = pthread_join(*currentThread, NULL);
+            if (ret != 0)
+            {
+                printf("Joining pthread %d caused an error!", i);
+                return cleanExit(barrier, ret);
+            }
         }
     }
-    barrier->free(barrier);
-    return 0;
+    return cleanExit(barrier, 0);
 }

@@ -26,8 +26,7 @@ const unsigned int changeThreadCount(pthread_mutex_t* threadMutex,
 
     unsigned int result = 0;
     pthread_mutex_lock(threadMutex);
-    *value = (*value + valueChanged);
-    result = *value;
+    result = *value = (*value + valueChanged);
     pthread_mutex_unlock(threadMutex);
     return result;
 }
