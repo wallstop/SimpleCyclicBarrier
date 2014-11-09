@@ -12,12 +12,11 @@
 
 typedef struct _CyclicBarrier
 {
-    unsigned int        initialThreadCount;
-    unsigned int        currentThreadCount;
-    pthread_mutex_t     threadCountLock;
+    unsigned int    initialThreadCount;
+    unsigned int    currentThreadCount;
+    pthread_mutex_t threadCountLock;
 
-    pthread_mutex_t     barrierLock;
-    pthread_cond_t      barrierComplete;
+    pthread_cond_t  threadCountComplete;
 
     void (*free)(struct _CyclicBarrier*);
     void (*await)(struct _CyclicBarrier*);

@@ -16,9 +16,11 @@ int count = 0;
 
 void printCount()
 {
+    int localCount = 0;
     pthread_mutex_lock(&mutex);
-    printf("%d \n", count++);   // Conveniently also lock printf. This serializes our prints to strictly increasing.
+    localCount = ++count;
     pthread_mutex_unlock(&mutex);
+    printf("%d\n", localCount);
 }
 
 void* doAThing(void *args)

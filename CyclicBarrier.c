@@ -9,60 +9,42 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
 
-void cyclicBarrierFree(CyclicBarrier* this)
+static void cyclicBarrierFree(CyclicBarrier* this)
 {
     pthread_mutex_destroy(&(this->threadCountLock));
-    pthread_mutex_destroy(&(this->barrierLock));
-    pthread_cond_destroy(&(this->barrierComplete));
+    pthread_cond_destroy(&(this->threadCountComplete));
     free(this);
 }
 
-const unsigned int changeThreadCount(pthread_mutex_t* threadMutex,
-        unsigned int* value, const unsigned int valueChanged)
+static void cyclicBarrierAwait(struct _CyclicBarrier* this)
 {
-    assert(NULL != threadMutex);
-    assert(NULL != value);
-
-    unsigned int result = 0;
-    pthread_mutex_lock(threadMutex);
-    result = *value = (*value + valueChanged);
-    pthread_mutex_unlock(threadMutex);
-    return result;
-}
-
-void checkBarrierComplete(pthread_mutex_t* barrierLock,
-        pthread_cond_t* barrierComplete, const unsigned int threadNumber,
-        const unsigned int checkNumber)
-{
-    pthread_mutex_lock(barrierLock);
-    if (threadNumber != checkNumber)
-        pthread_cond_wait(barrierComplete, barrierLock);
+    pthread_mutex_lock(&(this->threadCountLock));
+    (this->currentThreadCount)--;
+    if(this->currentThreadCount != 0)
+    {
+        const int error = pthread_cond_wait(&(this->threadCountComplete), &(this->threadCountLock));
+        if (error)
+            perror("pthread_con_wait");
+    }
     else
-        pthread_cond_broadcast(barrierComplete);
-    pthread_mutex_unlock(barrierLock);
-}
-
-void cyclicBarrierAwait(struct _CyclicBarrier* this)
-{
-    const unsigned int threadNumber = changeThreadCount(
-            &(this->threadCountLock), &(this->currentThreadCount), -1);
-    checkBarrierComplete(&(this->barrierLock), &(this->barrierComplete),
-            threadNumber, 0);
-    const unsigned int finishedThreadNumber = changeThreadCount(
-            &(this->threadCountLock), &(this->currentThreadCount), 1);
-    checkBarrierComplete(&(this->currentThreadCount),
-            &(this->currentThreadCount), finishedThreadNumber,
-            this->initialThreadCount);
+    {
+        this->currentThreadCount = this->initialThreadCount;
+        const int error = pthread_cond_broadcast(&(this->threadCountComplete));
+        if (error)
+            perror("pthread_con_broadcast");
+    }
+    pthread_mutex_unlock(&(this->threadCountLock));
 }
 
 CyclicBarrier* newCyclicBarrier(const unsigned int threadCount)
 {
     CyclicBarrier* this = (CyclicBarrier*) malloc(sizeof(CyclicBarrier));
-    this->currentThreadCount = this->initialThreadCount = threadCount;
+    this->initialThreadCount = threadCount;
+    this->currentThreadCount = threadCount;
     pthread_mutex_init(&(this->threadCountLock), NULL);
-    pthread_mutex_init(&(this->barrierLock), NULL);
-    pthread_cond_init(&(this->barrierComplete), NULL);
+    pthread_cond_init(&(this->threadCountComplete), NULL);
     this->await = &cyclicBarrierAwait;
     this->free = &cyclicBarrierFree;
 
